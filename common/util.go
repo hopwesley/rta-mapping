@@ -13,9 +13,3 @@ const (
 const (
 	BidTypeOk = iota
 )
-
-var (
-	HitFailure = &Response{
-		StatusCode: HitFailed,
-	}
-)
