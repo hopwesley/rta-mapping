@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+option go_package = "github.com/hopwesley/rta-mapping/common;common";
+
+enum DeviceType{
+  Unknown = 0;
+  IMEI_MD5 = 1;
+  ANDROID_ID = 2;
+  ANDROID_ID_MD5=3;
+}
+
+message Device{
+  string imei_md5 = 1;
+  string android_id_md5 = 2;
+  string oaid = 3;
+  string idfa = 4;
+}
+
+message Request{
+    string platform = 1;
+    int64 slot_id = 2;
+    DeviceType did_type = 3;
+    Device device = 4;
+    repeated int64 rta_ids = 5;
+    string req_id = 6;
+    string source = 7;
+}
+
+message UserInfos{
+  bool is_interested = 1;
+  int64 rta_id = 2;
+}
+
+message Response{
+  int32 status_code = 1;
+  int32 bid_type = 2;
+    UserInfos user_infos = 3;
+}
