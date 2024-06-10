@@ -1,4 +1,4 @@
-package workV1
+package V1
 
 import (
 	"github.com/hopwesley/rta-mapping/common"

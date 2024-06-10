@@ -12,6 +12,10 @@ func TestConfig(t *testing.T) {
 		SrvPort:     "8801",
 		SSLCertFile: "",
 		SSLKeyFile:  "",
+		Redis: &RedisCfg{
+			Addr:     "localhost:6379",
+			Password: "123",
+		},
 	}
 	bts, _ := json.MarshalIndent(cfg, "", "\t")
 	_ = os.WriteFile("../config.sample.json", bts, 0644)

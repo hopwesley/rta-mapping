@@ -1,9 +1,6 @@
 package common
 
 import (
-	"crypto/md5"
-	"fmt"
-	"io"
 	"sync"
 )
 
@@ -16,19 +13,19 @@ type IDMap struct {
 	AndroidIDMD5 map[string]string `json:"android_id_md5"`
 }
 
-var _mapping *IDMap
-var _mapOnce sync.Once
+var _idMapping *IDMap
+var _idMapOnce sync.Once
 
 func IDMapInst() *IDMap {
-	_mapOnce.Do(func() {
-		_mapping = &IDMap{
+	_idMapOnce.Do(func() {
+		_idMapping = &IDMap{
 			IMEIMD5:      make(map[string]string),
 			OAID:         make(map[string]string),
 			IDFA:         make(map[string]string),
 			AndroidIDMD5: make(map[string]string),
 		}
 	})
-	return _mapping
+	return _idMapping
 }
 
 func (im *IDMap) QueryKey(device *Device) string {
@@ -52,7 +49,7 @@ func (im *IDMap) QueryKey(device *Device) string {
 }
 
 type IDUpdateRequest struct {
-	Phone        string `json:"phone"`
+	UserID       string `json:"phone"`
 	IMEIMD5      string `json:"imei_md5"`
 	OAID         string `json:"oaid"`
 	IDFA         string `json:"idfa"`
@@ -66,23 +63,26 @@ type UpdateResponse struct {
 }
 
 func (im *IDMap) UpdateIDMap(req *IDUpdateRequest) *UpdateResponse {
-	h := md5.New()
-	_, _ = io.WriteString(h, req.Phone)
-	md5sum := h.Sum(nil)
-
-	phoneMD5 := fmt.Sprintf("%x", md5sum)
 
 	if len(req.IMEIMD5) > 0 {
-		im.IMEIMD5[req.IMEIMD5] = phoneMD5
+		im.IMEIMD5[req.IMEIMD5] = req.UserID
+	} else {
+		delete(im.IMEIMD5, req.IMEIMD5)
 	}
 	if len(req.OAID) > 0 {
-		im.OAID[req.OAID] = phoneMD5
+		im.OAID[req.OAID] = req.UserID
+	} else {
+		delete(im.OAID, req.OAID)
 	}
 	if len(req.IDFA) > 0 {
-		im.IDFA[req.IDFA] = phoneMD5
+		im.IDFA[req.IDFA] = req.UserID
+	} else {
+		delete(im.IDFA, req.IDFA)
 	}
 	if len(req.AndroidIDMD5) > 0 {
-		im.AndroidIDMD5[req.AndroidIDMD5] = phoneMD5
+		im.AndroidIDMD5[req.AndroidIDMD5] = req.UserID
+	} else {
+		delete(im.AndroidIDMD5, req.AndroidIDMD5)
 	}
 
 	return &UpdateResponse{

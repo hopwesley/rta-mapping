@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/hopwesley/rta-mapping/V1"
 	"github.com/hopwesley/rta-mapping/common"
-	"github.com/hopwesley/rta-mapping/workV1"
-	"github.com/hopwesley/rta-mapping/workV2"
 	"google.golang.org/protobuf/proto"
 	"io"
 	"net/http"
@@ -53,17 +52,14 @@ func writeProtoResponse(w http.ResponseWriter, response *common.Response) {
 
 func rtaHint(w http.ResponseWriter, r *http.Request) {
 	var request = readProtoRequest(w, r)
-	var response = workV1.QueryRtaMap(request)
+	var response = V1.QueryRtaMap(request)
 	writeProtoResponse(w, response)
 }
 
 func rtaHintV2(w http.ResponseWriter, r *http.Request) {
-	var request = readProtoRequest(w, r)
-	var response = workV2.QueryRtaMap(request)
-	writeProtoResponse(w, response)
 }
 
-func rtaUpdate(w http.ResponseWriter, r *http.Request) {
+func IDUpdate(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Unable to read body", http.StatusBadRequest)
@@ -92,7 +88,7 @@ func ratRelationUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var request = &workV1.RtaUpdateRequest{}
+	var request = &V1.RtaUpdateRequest{}
 	err = json.Unmarshal(body, request)
 	if err != nil {
 		http.Error(w, "Invalid update request", http.StatusBadRequest)
@@ -102,14 +98,17 @@ func ratRelationUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	var response = workV1.IDRatInst().UpdateHintList(request)
+	var response = V1.IDRatInst().UpdateHintList(request)
 	data, _ := json.Marshal(response)
 	w.Write(data)
 }
 
 func ratRelationUpdateV2(w http.ResponseWriter, r *http.Request) {
 }
-
+func rtaQuery(w http.ResponseWriter, r *http.Request) {
+}
+func idQuery(w http.ResponseWriter, r *http.Request) {
+}
 func NewHttpService() *Service {
 	var s = &Service{}
 	r := chi.NewRouter()
@@ -122,12 +121,24 @@ func NewHttpService() *Service {
 		r.Post("/V2", rtaHintV2)
 	})
 
-	r.MethodFunc(http.MethodPost, "/rta_update", rtaUpdate)
+	r.MethodFunc(http.MethodPost, "/rta_update", IDUpdate)
 
 	r.Route("/id_map_update", func(r chi.Router) {
 		r.Post("/", ratRelationUpdate)
 		r.Post("/V1", ratRelationUpdate)
 		r.Post("/V2", ratRelationUpdateV2)
+	})
+
+	r.Route("/query_rta", func(r chi.Router) {
+		r.Post("/", rtaQuery)
+		r.Post("/V1", rtaQuery)
+		r.Post("/V2", rtaQuery)
+	})
+
+	r.Route("/query_id", func(r chi.Router) {
+		r.Post("/", rtaQuery)
+		r.Post("/V1", rtaQuery)
+		r.Post("/V2", idQuery)
 	})
 
 	s.router = r

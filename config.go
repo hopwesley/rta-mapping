@@ -1,10 +1,11 @@
 package main
 
 type Config struct {
-	UseSSL      bool   `json:"use_ssl"`
-	SrvPort     string `json:"srv_port"`
-	SSLCertFile string `json:"ssl_cert_file"`
-	SSLKeyFile  string `json:"ssl_key_file"`
+	UseSSL      bool      `json:"use_ssl"`
+	SrvPort     string    `json:"srv_port"`
+	SSLCertFile string    `json:"ssl_cert_file"`
+	SSLKeyFile  string    `json:"ssl_key_file"`
+	Redis       *RedisCfg `json:"redis"`
 }
 
 func (c *Config) String() string {
