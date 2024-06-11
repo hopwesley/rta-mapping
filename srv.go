@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/hopwesley/rta-mapping/V1"
 	"github.com/hopwesley/rta-mapping/common"
-	"google.golang.org/protobuf/proto"
 	"io"
 	"net/http"
 )
@@ -24,42 +22,24 @@ func (s *Service) Start() {
 	}
 }
 
-func readProtoRequest(w http.ResponseWriter, r *http.Request) *common.Request {
-	body, err := io.ReadAll(r.Body)
+func rtaHint(w http.ResponseWriter, r *http.Request) {
+	var request = common.ReadProtoRequest(w, r)
+	var response = common.CheckIfHinted(request)
+	common.WriteProtoResponse(w, response)
+}
+
+func rtaUpdate(w http.ResponseWriter, r *http.Request) {
+	var req = &common.RtaUpdateItem{}
+	err := common.ReadJsonRequest(r, req)
 	if err != nil {
 		http.Error(w, "Unable to read body", http.StatusBadRequest)
-		return nil
+		return
 	}
-
-	var request = &common.Request{}
-	if err := proto.Unmarshal(body, request); err != nil {
-		common.LogInst().Error("request is invalid:", err)
-		return nil
-	}
-
-	return request
+	var res = common.RtaMapInst().UpdateRta(req)
+	common.WriteJsonRequest(w, res)
 }
 
-func writeProtoResponse(w http.ResponseWriter, response *common.Response) {
-	w.Header().Set("Content-Type", "application/x-protobuf")
-	w.WriteHeader(http.StatusOK)
-	data, _ := proto.Marshal(response)
-	_, err := w.Write(data)
-	if err != nil {
-		common.LogInst().Error(err)
-	}
-}
-
-func rtaHint(w http.ResponseWriter, r *http.Request) {
-	var request = readProtoRequest(w, r)
-	var response = V1.QueryRtaMap(request)
-	writeProtoResponse(w, response)
-}
-
-func rtaHintV2(w http.ResponseWriter, r *http.Request) {
-}
-
-func IDUpdate(w http.ResponseWriter, r *http.Request) {
+func idUpdate(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Unable to read body", http.StatusBadRequest)
@@ -81,65 +61,22 @@ func IDUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func ratRelationUpdate(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Unable to read body", http.StatusBadRequest)
-		return
-	}
+func rtaQuery(w http.ResponseWriter, r *http.Request) {}
+func idQuery(w http.ResponseWriter, r *http.Request)  {}
 
-	var request = &V1.RtaUpdateRequest{}
-	err = json.Unmarshal(body, request)
-	if err != nil {
-		http.Error(w, "Invalid update request", http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	var response = V1.IDRatInst().UpdateHintList(request)
-	data, _ := json.Marshal(response)
-	w.Write(data)
-}
-
-func ratRelationUpdateV2(w http.ResponseWriter, r *http.Request) {
-}
-func rtaQuery(w http.ResponseWriter, r *http.Request) {
-}
-func idQuery(w http.ResponseWriter, r *http.Request) {
-}
 func NewHttpService() *Service {
 	var s = &Service{}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{Logger: common.LogInst(), NoColor: true}))
 	r.Use(middleware.Recoverer)
 
-	r.Route("/rta_api", func(r chi.Router) {
-		r.Post("/", rtaHint)
-		r.Post("/V1", rtaHint)
-		r.Post("/V2", rtaHintV2)
-	})
+	r.MethodFunc(http.MethodPost, "/rta_hint", rtaHint)
+	r.MethodFunc(http.MethodPost, "/rta_update", rtaUpdate)
 
-	r.MethodFunc(http.MethodPost, "/rta_update", IDUpdate)
+	r.MethodFunc(http.MethodPost, "/id_map_update", idUpdate)
 
-	r.Route("/id_map_update", func(r chi.Router) {
-		r.Post("/", ratRelationUpdate)
-		r.Post("/V1", ratRelationUpdate)
-		r.Post("/V2", ratRelationUpdateV2)
-	})
-
-	r.Route("/query_rta", func(r chi.Router) {
-		r.Post("/", rtaQuery)
-		r.Post("/V1", rtaQuery)
-		r.Post("/V2", rtaQuery)
-	})
-
-	r.Route("/query_id", func(r chi.Router) {
-		r.Post("/", rtaQuery)
-		r.Post("/V1", rtaQuery)
-		r.Post("/V2", idQuery)
-	})
+	r.MethodFunc(http.MethodPost, "/query_rta", rtaQuery)
+	r.MethodFunc(http.MethodPost, "/query_id", idQuery)
 
 	s.router = r
 	return s

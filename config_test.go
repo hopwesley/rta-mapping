@@ -12,9 +12,16 @@ func TestConfig(t *testing.T) {
 		SrvPort:     "8801",
 		SSLCertFile: "",
 		SSLKeyFile:  "",
-		Redis: &RedisCfg{
+		RedisCfg: &RedisCfg{
 			Addr:     "localhost:6379",
 			Password: "123",
+		},
+		MysqlCfg: &MysqlCfg{
+			UserName: "",
+			Password: "",
+			Host:     "",
+			Port:     "",
+			Database: "",
 		},
 	}
 	bts, _ := json.MarshalIndent(cfg, "", "\t")

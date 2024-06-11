@@ -7,10 +7,10 @@ import (
 // 所以把imei放最前面，其次oaid，然后idfa
 
 type IDMap struct {
-	IMEIMD5      map[string]string `json:"imei_md5"`
-	OAID         map[string]string `json:"oaid"`
-	IDFA         map[string]string `json:"idfa"`
-	AndroidIDMD5 map[string]string `json:"android_id_md5"`
+	IMEIMD5      map[string]int `json:"imei_md5"`
+	OAID         map[string]int `json:"oaid"`
+	IDFA         map[string]int `json:"idfa"`
+	AndroidIDMD5 map[string]int `json:"android_id_md5"`
 }
 
 var _idMapping *IDMap
@@ -19,37 +19,37 @@ var _idMapOnce sync.Once
 func IDMapInst() *IDMap {
 	_idMapOnce.Do(func() {
 		_idMapping = &IDMap{
-			IMEIMD5:      make(map[string]string),
-			OAID:         make(map[string]string),
-			IDFA:         make(map[string]string),
-			AndroidIDMD5: make(map[string]string),
+			IMEIMD5:      make(map[string]int),
+			OAID:         make(map[string]int),
+			IDFA:         make(map[string]int),
+			AndroidIDMD5: make(map[string]int),
 		}
 	})
 	return _idMapping
 }
 
-func (im *IDMap) QueryKey(device *Device) string {
-	phoneMD5, ok := im.IMEIMD5[device.ImeiMd5]
+func (im *IDMap) DeviceToUserID(device *Device) (int, bool) {
+	userID, ok := im.IMEIMD5[device.ImeiMd5]
 	if ok {
-		return phoneMD5
+		return userID, true
 	}
-	phoneMD5, ok = im.OAID[device.Oaid]
+	userID, ok = im.OAID[device.Oaid]
 	if ok {
-		return phoneMD5
+		return userID, true
 	}
-	phoneMD5, ok = im.IDFA[device.Idfa]
+	userID, ok = im.IDFA[device.Idfa]
 	if ok {
-		return phoneMD5
+		return userID, true
 	}
-	phoneMD5, ok = im.AndroidIDMD5[device.AndroidIdMd5]
+	userID, ok = im.AndroidIDMD5[device.AndroidIdMd5]
 	if ok {
-		return phoneMD5
+		return userID, true
 	}
-	return ""
+	return -1, false
 }
 
 type IDUpdateRequest struct {
-	UserID       string `json:"phone"`
+	UserID       int    `json:"user_id"`
 	IMEIMD5      string `json:"imei_md5"`
 	OAID         string `json:"oaid"`
 	IDFA         string `json:"idfa"`
@@ -90,4 +90,18 @@ func (im *IDMap) UpdateIDMap(req *IDUpdateRequest) *UpdateResponse {
 		Code:    0,
 		Msg:     "Success",
 	}
+}
+
+func (im *IDMap) CleanMap() {
+	im.IDFA = make(map[string]int)
+	im.IMEIMD5 = make(map[string]int)
+	im.OAID = make(map[string]int)
+	im.AndroidIDMD5 = make(map[string]int)
+}
+
+func (im *IDMap) UpdateByMySqlWithoutLock(item IDUpdateRequest) {
+	im.IDFA[item.IDFA] = item.UserID
+	im.IMEIMD5[item.IMEIMD5] = item.UserID
+	im.OAID[item.OAID] = item.UserID
+	im.AndroidIDMD5[item.AndroidIDMD5] = item.UserID
 }

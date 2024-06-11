@@ -1,13 +1,13 @@
 package common
 
 var (
-	HitFailure = Response{
+	HitFailure = Rsp{
 		StatusCode: HitFailed,
 	}
 )
 
-func FailureHit(reqID string) *Response {
-	return &Response{
+func FailureHit(reqID string) *Rsp {
+	return &Rsp{
 		StatusCode: HitFailed,
 		ReqId:      reqID,
 	}

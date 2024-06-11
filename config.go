@@ -5,7 +5,8 @@ type Config struct {
 	SrvPort     string    `json:"srv_port"`
 	SSLCertFile string    `json:"ssl_cert_file"`
 	SSLKeyFile  string    `json:"ssl_key_file"`
-	Redis       *RedisCfg `json:"redis"`
+	RedisCfg    *RedisCfg `json:"redis"`
+	MysqlCfg    *MysqlCfg `json:"mysql"`
 }
 
 func (c *Config) String() string {

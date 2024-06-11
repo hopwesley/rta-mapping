@@ -26,9 +26,9 @@ type startParam struct {
 }
 
 var rootCmd = &cobra.Command{
-	Use: "rta-map",
+	Use: "rtaHint",
 
-	Short: "rta-map",
+	Short: "rtaHint",
 
 	Long: `usage description::TODO::`,
 
@@ -59,19 +59,29 @@ func mainRun(_ *cobra.Command, _ []string) {
 		fmt.Println("==================================================")
 		return
 	}
+
 	if err := fdlimit.MaxIt(); err != nil {
 		panic(err)
 	}
-	initConfig(param.config)
+	cfg := initConfig(param.config)
+
+	if err := InitIDMap(cfg.MysqlCfg); err != nil {
+		panic(err)
+	}
+
+	if err := InitRtaMap(cfg.RedisCfg); err != nil {
+		panic(err)
+	}
 
 	var srv = NewHttpService()
 	go func() {
 		srv.Start()
 	}()
+
 	waitShutdownSignal()
 }
 
-func initConfig(filName string) {
+func initConfig(filName string) *Config {
 	cf := new(Config)
 
 	bts, err := os.ReadFile(filName)
@@ -84,7 +94,9 @@ func initConfig(filName string) {
 	}
 
 	_sysConfig = cf
+	return cf
 }
+
 func waitShutdownSignal() {
 	var pidFile = os.Args[0] + ".pid"
 	pid := strconv.Itoa(os.Getpid())
