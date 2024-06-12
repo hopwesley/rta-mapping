@@ -7,6 +7,7 @@ import (
 // 所以把imei放最前面，其次oaid，然后idfa
 
 type IDMap struct {
+	sync.RWMutex
 	IMEIMD5      map[string]int `json:"imei_md5"`
 	OAID         map[string]int `json:"oaid"`
 	IDFA         map[string]int `json:"idfa"`
@@ -29,6 +30,9 @@ func IDMapInst() *IDMap {
 }
 
 func (im *IDMap) DeviceToUserID(device *Device) (int, bool) {
+	im.RLock()
+	defer im.RUnlock()
+
 	userID, ok := im.IMEIMD5[device.ImeiMd5]
 	if ok {
 		return userID, true
@@ -63,6 +67,8 @@ type UpdateResponse struct {
 }
 
 func (im *IDMap) UpdateIDMap(req *IDUpdateRequest) *UpdateResponse {
+	im.Lock()
+	defer im.Unlock()
 
 	if len(req.IMEIMD5) > 0 {
 		im.IMEIMD5[req.IMEIMD5] = req.UserID
@@ -79,6 +85,7 @@ func (im *IDMap) UpdateIDMap(req *IDUpdateRequest) *UpdateResponse {
 	} else {
 		delete(im.IDFA, req.IDFA)
 	}
+
 	if len(req.AndroidIDMD5) > 0 {
 		im.AndroidIDMD5[req.AndroidIDMD5] = req.UserID
 	} else {

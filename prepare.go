@@ -89,26 +89,33 @@ type MysqlCfg struct {
 func (c *MysqlCfg) ToDsn() string {
 	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", c.UserName, c.Password, c.Host, c.Port, c.Database)
 }
-
-func InitIDMap(cfg *MysqlCfg) error {
-
-	dsn := cfg.ToDsn() //"username:password@tcp(localhost:3306)/yourdatabase"
+func (c *MysqlCfg) OpenDatabase() (*sql.DB, error) {
+	if c.Limit <= 0 {
+		c.Limit = DefaultMaxIDMapSize
+	}
+	dsn := c.ToDsn() //"username:password@tcp(localhost:3306)/yourdatabase"
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		fmt.Println("open mysql database failed:", err)
-		return err
+		return nil, err
 	}
-	defer db.Close()
 	err = db.Ping()
 	if err != nil {
 		fmt.Println("connect to database failed:", err)
-		return err
+		return nil, err
 	}
 	fmt.Println("Successfully connected to the database")
-	if cfg.Limit <= 0 {
-		cfg.Limit = DefaultMaxIDMapSize
+	return db, nil
+}
+
+func InitIDMap(cfg *MysqlCfg) error {
+	db, err := cfg.OpenDatabase()
+	if err != nil {
+		return err
 	}
+	defer db.Close()
+
 	query := fmt.Sprintf("SELECT uid, imei_md5, oaid, idfa, android_id FROM %s LIMIT ?", IDTableName)
 	rows, err := db.Query(query, cfg.Limit)
 
@@ -116,6 +123,7 @@ func InitIDMap(cfg *MysqlCfg) error {
 		fmt.Println("data query failed:", err)
 		return err
 	}
+
 	common.IDMapInst().CleanMap()
 	var counter = int64(0)
 	var start = time.Now()
@@ -127,12 +135,13 @@ func InitIDMap(cfg *MysqlCfg) error {
 			fmt.Println("Error scanning row:", err)
 			return err
 		}
-		//bts, _ := json.Marshal(item)
-		//fmt.Println(string(bts))
+
 		counter++
 		common.IDMapInst().UpdateByMySqlWithoutLock(item)
-		if counter%1000 == 0 {
+		if counter%10000 == 0 {
 			fmt.Printf("\rUpdated id map size: %d progress: %.2f%% time used: %s", counter, float32(counter)*100/float32(cfg.Limit), time.Since(start))
+			//bts, _ := json.Marshal(item)
+			//fmt.Println(string(bts))
 		}
 	}
 

@@ -1,11 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/hopwesley/rta-mapping/common"
-	"io"
 	"net/http"
 )
 
@@ -40,29 +38,23 @@ func rtaUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func idUpdate(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Unable to read body", http.StatusBadRequest)
-		return
-	}
-
 	var request = &common.IDUpdateRequest{}
-	err = json.Unmarshal(body, request)
+	err := common.ReadJsonRequest(r, request)
 	if err != nil {
-		http.Error(w, "Invalid update request", http.StatusBadRequest)
+		http.Error(w, "Invalid query request", http.StatusBadRequest)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 
 	var response = common.IDMapInst().UpdateIDMap(request)
-	data, _ := json.Marshal(response)
-	w.Write(data)
+	common.WriteJsonRequest(w, response)
 }
 
-func rtaQuery(w http.ResponseWriter, r *http.Request) {}
-func idQuery(w http.ResponseWriter, r *http.Request)  {}
+func rtaQuery(w http.ResponseWriter, r *http.Request) {
+
+}
+func idQuery(w http.ResponseWriter, r *http.Request) {
+
+}
 
 func NewHttpService() *Service {
 	var s = &Service{}
