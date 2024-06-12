@@ -9,10 +9,12 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hopwesley/rta-mapping/common"
 	"strconv"
+	"time"
 )
 
 const (
-	IDTableName = "ID_MAPPING"
+	IDTableName         = "ad_id_mapping"
+	DefaultMaxIDMapSize = 20_000_000
 )
 
 type RedisCfg struct {
@@ -81,6 +83,7 @@ type MysqlCfg struct {
 	Host     string `json:"host"`
 	Port     string `json:"port"`
 	Database string `json:"database"`
+	Limit    int64  `json:"limit"`
 }
 
 func (c *MysqlCfg) ToDsn() string {
@@ -103,27 +106,40 @@ func InitIDMap(cfg *MysqlCfg) error {
 		return err
 	}
 	fmt.Println("Successfully connected to the database")
+	if cfg.Limit <= 0 {
+		cfg.Limit = DefaultMaxIDMapSize
+	}
+	query := fmt.Sprintf("SELECT uid, imei_md5, oaid, idfa, android_id FROM %s LIMIT ?", IDTableName)
+	rows, err := db.Query(query, cfg.Limit)
 
-	rows, err := db.Query("SELECT uid,imei_md5,oaid,idfa,android_id FROM " + IDTableName)
 	if err != nil {
+		fmt.Println("data query failed:", err)
 		return err
 	}
 	common.IDMapInst().CleanMap()
+	var counter = int64(0)
+	var start = time.Now()
 	for rows.Next() {
 		var item common.IDUpdateRequest
+
 		err := rows.Scan(&item.UserID, &item.IMEIMD5, &item.OAID, &item.IDFA, &item.AndroidIDMD5)
 		if err != nil {
 			fmt.Println("Error scanning row:", err)
 			return err
 		}
-
+		//bts, _ := json.Marshal(item)
+		//fmt.Println(string(bts))
+		counter++
 		common.IDMapInst().UpdateByMySqlWithoutLock(item)
+		if counter%1000 == 0 {
+			fmt.Printf("\rUpdated id map size: %d progress: %.2f%% time used: %s", counter, float32(counter)*100/float32(cfg.Limit), time.Since(start))
+		}
 	}
 
 	if err = rows.Err(); err != nil {
 		fmt.Println("Error scanning rows:", err)
 		return err
 	}
-
+	fmt.Println("Successfully init id map")
 	return nil
 }

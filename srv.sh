@@ -1,0 +1,1 @@
+ ssh -i readme/liwansheng.pem root@47.99.198.186

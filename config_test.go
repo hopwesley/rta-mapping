@@ -17,13 +17,14 @@ func TestConfig(t *testing.T) {
 			Password: "123",
 		},
 		MysqlCfg: &MysqlCfg{
-			UserName: "",
+			UserName: "marketing",
 			Password: "",
 			Host:     "",
 			Port:     "",
-			Database: "",
+			Database: "marketing",
+			Limit:    20_000_000,
 		},
 	}
 	bts, _ := json.MarshalIndent(cfg, "", "\t")
-	_ = os.WriteFile("../config.sample.json", bts, 0644)
+	_ = os.WriteFile("config.sample.json", bts, 0644)
 }
