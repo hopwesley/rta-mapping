@@ -35,14 +35,17 @@ func InitRtaMap(cfg *RedisCfg) error {
 	var rtaIDs []string
 	for {
 		var err error
-		rtaIDs, cursor, err = rdb.Scan(ctx, cursor, "", 0).Result()
+		keys, err := rdb.Keys(ctx, "ad:bytedance*").Result()
+		//rtaIDs, cursor, err = rdb.Scan(ctx, cursor, "", 0).Result()
 		if err != nil {
+			fmt.Println("redis scan err:", err)
 			return err
 		}
-
-		for _, rtaID := range rtaIDs {
-			jsonUserIDs, err := rdb.Get(ctx, rtaID).Result()
+		fmt.Println("rtaIDS len:", len(rtaIDs))
+		for _, key := range keys {
+			jsonUserIDs, err := rdb.Get(ctx, key).Result()
 			if err != nil {
+				fmt.Println("redis get err:", err)
 				return err
 			}
 			var userIDs []int
@@ -52,20 +55,21 @@ func InitRtaMap(cfg *RedisCfg) error {
 				return err
 			}
 
-			fmt.Printf("rtaID: %s, Value Len: %d\n", rtaID, len(userIDs))
+			fmt.Printf("rtaID: %s, Value Len: %d\n", key, len(userIDs))
 			if len(userIDs) == 0 {
 				continue
 			}
-			rid, err := strconv.ParseInt(rtaID, 10, 64)
+			rid, err := strconv.ParseInt(key, 10, 64)
 			if err != nil {
 				return err
 			}
 			common.RtaMapInst().InitByOneRtaWithoutLock(rid, userIDs)
 
-			//fmt.Printf("init rta[%s] successfully\n", rtaID)
+			fmt.Printf("init rta[%s] successfully\n", key)
 		}
 
 		if cursor == 0 {
+			fmt.Println("cursor is zero now")
 			break
 		}
 	}
@@ -121,7 +125,6 @@ func InitIDMap(cfg *MysqlCfg) error {
 		return err
 	}
 
-	common.IDMapInst().CleanMap()
 	var counter = int64(0)
 	var start = time.Now()
 	for rows.Next() {
