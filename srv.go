@@ -38,10 +38,10 @@ func rtaUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func idUpdate(w http.ResponseWriter, r *http.Request) {
-	var request = &common.IDUpdateRequest{}
+	var request = &common.JsonRequest{}
 	err := common.ReadJsonRequest(r, request)
 	if err != nil {
-		http.Error(w, "Invalid query request", http.StatusBadRequest)
+		http.Error(w, "Invalid update request", http.StatusBadRequest)
 		return
 	}
 
@@ -50,10 +50,25 @@ func idUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func rtaQuery(w http.ResponseWriter, r *http.Request) {
-
+	var request = &common.JsonRequest{}
+	err := common.ReadJsonRequest(r, request)
+	if err != nil {
+		http.Error(w, "Invalid query request", http.StatusBadRequest)
+		return
+	}
+	var response = common.RtaMapInst().QueryRatInfos(request)
+	common.WriteJsonRequest(w, response)
 }
-func idQuery(w http.ResponseWriter, r *http.Request) {
 
+func idQuery(w http.ResponseWriter, r *http.Request) {
+	var request = &common.JsonRequest{}
+	err := common.ReadJsonRequest(r, request)
+	if err != nil {
+		http.Error(w, "Invalid query request", http.StatusBadRequest)
+		return
+	}
+	var response = common.IDMapInst().QueryIDInfos(request)
+	common.WriteJsonRequest(w, response)
 }
 
 func NewHttpService() *Service {

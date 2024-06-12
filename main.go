@@ -68,10 +68,13 @@ func mainRun(_ *cobra.Command, _ []string) {
 	if err := InitIDMap(cfg.MysqlCfg); err != nil {
 		panic(err)
 	}
+	common.PrintMemUsage()
 
 	if err := InitRtaMap(cfg.RedisCfg); err != nil {
 		panic(err)
 	}
+
+	common.PrintMemUsage()
 
 	var srv = NewHttpService()
 	go func() {

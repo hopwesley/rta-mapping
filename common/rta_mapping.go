@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/json"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"sync"
 )
@@ -8,39 +9,29 @@ import (
 var _rtaMapping *RtaBitMap
 var _rtaMapOnce sync.Once
 
-type UserIDToRat map[int]*BitSlot
-
 func RtaMapInst() *RtaBitMap {
 	_rtaMapOnce.Do(func() {
-		_rtaMapping = &RtaBitMap{rtaGrp: make(map[int64]bool)}
-		for i := 0; i < BitSlotSize; i++ {
-			_rtaMapping.bitMapGrp[i] = make(UserIDToRat)
+		_rtaMapping = &RtaBitMap{
+			rtaGrp:    new(sync.Map),
+			bitMapGrp: new(sync.Map),
 		}
 	})
+
 	return _rtaMapping
 }
 
 type RtaBitMap struct {
-	bitMapGrp  [BitSlotSize]UserIDToRat
-	slotLock   [BitSlotSize]sync.RWMutex
-	rtaGrp     map[int64]bool
-	rtaTypLock sync.RWMutex
+	bitMapGrp *sync.Map
+	rtaGrp    *sync.Map
 }
 
-func (m *RtaBitMap) InitByOneRtaWithoutLock(rtaID int64, userIDs []int) error {
+func (m *RtaBitMap) InitByOneRtaWithoutLock(rtaID int64, userIDs []int) {
 	var slotPos = rtaIDToSlotPos(rtaID)
-
-	for _, usrID := range userIDs {
-		var rtaMap = m.bitMapGrp[slotPos]
-		if rtaMap[usrID] == nil {
-			rtaMap[usrID] = new(BitSlot)
-		}
-		rtaMap[usrID].Add(slotPos)
+	for _, userID := range userIDs {
+		bitSlot, _ := m.bitMapGrp.LoadOrStore(userID, new(BitSlot))
+		bitSlot.(*BitSlot).Add(slotPos)
 	}
-
-	m.rtaGrp[rtaID] = true
-
-	return nil
+	m.rtaGrp.Store(slotPos, rtaID)
 }
 
 type RtaUpdateItem struct {
@@ -49,95 +40,93 @@ type RtaUpdateItem struct {
 	IsDel   bool  `json:"is_del"`
 }
 
-func (m *RtaBitMap) UpdateRta(req *RtaUpdateItem) *UpdateResponse {
+func (m *RtaBitMap) UpdateRta(req *RtaUpdateItem) *JsonResponse {
+
 	slotPos := rtaIDToSlotPos(req.RtaID)
 
 	for _, userID := range req.UserIDs {
-		m.slotLock[slotPos].Lock()
-
-		rtaMap := m.bitMapGrp[slotPos]
-		if rtaMap[userID] == nil {
-			rtaMap[userID] = new(BitSlot)
-		}
-
+		bitSlot, _ := m.bitMapGrp.LoadOrStore(userID, new(BitSlot))
 		if req.IsDel {
-			rtaMap[userID].Clear(slotPos)
+			bitSlot.(*BitSlot).Clear(slotPos)
 		} else {
-			rtaMap[userID].Add(slotPos)
+			bitSlot.(*BitSlot).Add(slotPos)
 		}
-
-		m.slotLock[slotPos].Unlock()
 	}
-
-	m.rtaTypLock.Lock()
-	m.rtaGrp[req.RtaID] = true
-	m.rtaTypLock.Unlock()
-
-	return &UpdateResponse{
-		Success: true,
-		Code:    0,
-		Msg:     "Success",
-	}
+	m.rtaGrp.Store(slotPos, req.RtaID)
+	return SuccessJsonRes
 }
 
 func (m *RtaBitMap) HintedList(userID int, ratIDs []int64) (result []int64) {
 
+	value, ok := m.bitMapGrp.Load(userID)
+	if !ok {
+		return
+	}
+	bitMap := value.(*BitSlot)
+
 	for _, rtaID := range ratIDs {
-
-		m.rtaTypLock.RLock()
-		if m.rtaGrp[rtaID] == false {
-			m.rtaTypLock.RUnlock()
-			continue
-		}
-		m.rtaTypLock.RUnlock()
-
 		slotPos := rtaIDToSlotPos(rtaID)
-		m.slotLock[slotPos].RLock()
 
-		rtaMap := m.bitMapGrp[slotPos]
-
-		if rtaMap[userID] == nil {
-			m.slotLock[slotPos].RUnlock()
+		value, ok := m.rtaGrp.Load(slotPos)
+		if !ok || value.(int64) <= 0 {
 			continue
 		}
-		if rtaMap[userID].Has(slotPos) {
+
+		if bitMap.Has(slotPos) {
 			result = append(result, rtaID)
 		}
-		m.slotLock[slotPos].RUnlock()
 	}
 	return
 }
 
 func (m *RtaBitMap) HintedUserIDs(userID int, ratIDs []int64) (result []*UserInfo) {
 
+	value, ok := m.bitMapGrp.Load(userID)
+	if !ok {
+		return
+	}
+	bitMap := value.(*BitSlot)
+
 	for _, rtaID := range ratIDs {
-
-		m.rtaTypLock.RLock()
-		if m.rtaGrp[rtaID] == false {
-			m.rtaTypLock.RUnlock()
-			continue
-		}
-		m.rtaTypLock.RUnlock()
-
 		slotPos := rtaIDToSlotPos(rtaID)
-		m.slotLock[slotPos].RLock()
 
-		rtaMap := m.bitMapGrp[slotPos]
-		if rtaMap[userID] == nil {
-			m.slotLock[slotPos].RUnlock()
+		value, ok := m.rtaGrp.Load(slotPos)
+		if !ok || value.(int64) <= 0 {
 			continue
 		}
 
-		if rtaMap[userID].Has(slotPos) {
+		if bitMap.Has(slotPos) {
 			ui := &UserInfo{
 				RtaId:        rtaID,
 				IsInterested: true,
 			}
 			result = append(result, ui)
 		}
-		m.slotLock[slotPos].RUnlock()
 	}
+
 	return
+}
+
+func (m *RtaBitMap) QueryRatInfos(request *JsonRequest) *JsonResponse {
+	value, ok := m.bitMapGrp.Load(request.UserID)
+	if !ok {
+		return NotFoundJsonRes
+	}
+	data := value.(*BitSlot)
+
+	var posArr = data.GetBitsAsArray()
+	var rtaIDs []int64
+	for _, pos := range posArr {
+		if rtaID, ok := m.rtaGrp.Load(pos); ok {
+			rtaIDs = append(rtaIDs, rtaID.(int64))
+		}
+	}
+
+	bts, _ := json.Marshal(rtaIDs)
+	return &JsonResponse{
+		Success: true,
+		Msg:     string(bts),
+	}
 }
 
 func CheckIfHinted(request *Req) *Rsp {

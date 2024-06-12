@@ -60,12 +60,9 @@ func InitRtaMap(cfg *RedisCfg) error {
 			if err != nil {
 				return err
 			}
-			err = common.RtaMapInst().InitByOneRtaWithoutLock(rid, userIDs)
-			if err != nil {
-				return err
-			}
+			common.RtaMapInst().InitByOneRtaWithoutLock(rid, userIDs)
 
-			fmt.Printf("init rta[%s] successfully\n", rtaID)
+			//fmt.Printf("init rta[%s] successfully\n", rtaID)
 		}
 
 		if cursor == 0 {
@@ -128,7 +125,7 @@ func InitIDMap(cfg *MysqlCfg) error {
 	var counter = int64(0)
 	var start = time.Now()
 	for rows.Next() {
-		var item common.IDUpdateRequest
+		var item common.JsonRequest
 
 		err := rows.Scan(&item.UserID, &item.IMEIMD5, &item.OAID, &item.IDFA, &item.AndroidIDMD5)
 		if err != nil {

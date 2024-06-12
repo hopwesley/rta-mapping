@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/hopwesley/rta-mapping/common"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -28,6 +29,7 @@ func TestInitIDMap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	common.PrintMemUsage()
 }
 
 func TestMysqlPing(t *testing.T) {

@@ -1,19 +1,31 @@
 package common
 
 import (
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"google.golang.org/protobuf/proto"
+	"hash/fnv"
 	"io"
-	"math/big"
 	"net/http"
+	"runtime"
 )
 
 var (
 	Version   string
 	Commit    string
 	BuildTime string
+)
+var (
+	SuccessJsonRes = &JsonResponse{
+		Success: true,
+		Code:    0,
+		Msg:     "Success",
+	}
+	NotFoundJsonRes = &JsonResponse{
+		Success: false,
+		Code:    -1,
+		Msg:     "Not Found",
+	}
 )
 
 const (
@@ -23,6 +35,20 @@ const (
 const (
 	BidTypeOk = iota
 )
+
+type JsonResponse struct {
+	Success bool   `json:"success"`
+	Code    int    `json:"code"`
+	Msg     string `json:"msg"`
+}
+
+type JsonRequest struct {
+	UserID       int    `json:"user_id"`
+	IMEIMD5      string `json:"imei_md5"`
+	OAID         string `json:"oaid"`
+	IDFA         string `json:"idfa"`
+	AndroidIDMD5 string `json:"android_id_md5"`
+}
 
 func ReadProtoRequest(w http.ResponseWriter, r *http.Request) *Req {
 	body, err := io.ReadAll(r.Body)
@@ -72,10 +98,24 @@ func WriteJsonRequest(w http.ResponseWriter, val any) {
 
 func rtaIDToSlotPos(rtaID int64) uint16 {
 	idStr := fmt.Sprintf("%d", rtaID)
-	hash := md5.Sum([]byte(idStr))
-	hashInt := new(big.Int)
-	hashInt.SetBytes(hash[:])
-	modulus := big.NewInt(BitSlotSize)
-	remainder := new(big.Int).Mod(hashInt, modulus)
-	return uint16(remainder.Int64())
+	return uint16(hashKey64(idStr, BitSlotSize))
+}
+
+func bToMb(b uint64) uint64 {
+	return b >> 20
+}
+
+func PrintMemUsage() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
+	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+}
+
+func hashKey64(key string, size int) int {
+	hasher := fnv.New64()
+	hasher.Write([]byte(key))
+	return int(hasher.Sum64()) % size
 }
