@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/go-redis/redis/v8"
 	"github.com/hopwesley/rta-mapping/common"
+	"strconv"
+	"strings"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -59,12 +63,67 @@ func TestMysqlPing(t *testing.T) {
 
 func TestInitRtaMap(t *testing.T) {
 	cfg := &RedisCfg{
-		Addr: "47.99.198.186:6600",
+		Addr:     "47.99.198.186:6600",
+		Password: password,
 	}
-	cfg.Password = password
 	err := InitRtaMap(cfg)
 	if err != nil {
-		fmt.Println("connect to redis failed:", err)
 		t.Fatal(err)
+	}
+}
+
+func TestRedisPing(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "47.99.198.186:6600", // Redis地址
+		Password: password,
+	})
+	ctx := context.Background()
+	defer rdb.Close()
+
+	// 检查Redis中是否有数据
+	keys, err := rdb.Keys(ctx, "ad:bytedance:*").Result()
+	if err != nil {
+		t.Fatalf("failed to get keys: %v", err)
+	}
+
+	if len(keys) == 0 {
+		fmt.Println("No data found in Redis.")
+		return
+	}
+
+	fmt.Printf("Found %d keys in Redis:\n", len(keys))
+	for _, key := range keys {
+		// 获取集合的大小
+		card, err := rdb.SCard(ctx, key).Result()
+		if err != nil {
+			fmt.Printf("failed to get cardinality for key %s: %v\n", key, err)
+		} else {
+			fmt.Printf("key: %s, cardinality: %d\n", key, card)
+		}
+		rtaIDStr, found := strings.CutPrefix(key, RatRedisKeyPrefix)
+		fmt.Println("rta id string:", found, rtaIDStr)
+		rid, err := strconv.ParseInt(rtaIDStr, 10, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Println("rid integer:", rid)
+		// 使用 SSCAN 分批获取集合成员
+		var cursor uint64
+		for {
+			members, cursor, err := rdb.SScan(ctx, key, cursor, "", 1000).Result()
+			if err != nil {
+				fmt.Printf("failed to scan members for key %s: %v\n", key, err)
+				break
+			}
+
+			if len(members) > 0 {
+				fmt.Printf("key: %s, members: %v\n", key, members)
+			}
+
+			if cursor == 0 {
+				break
+			}
+			break
+		}
 	}
 }

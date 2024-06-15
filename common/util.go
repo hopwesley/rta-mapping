@@ -114,8 +114,8 @@ func PrintMemUsage() {
 	fmt.Printf("\tNumGC = %v\n", m.NumGC)
 }
 
-func hashKey64(key string, size int) int {
+func hashKey64(key string, size int) uint64 {
 	hasher := fnv.New64()
 	hasher.Write([]byte(key))
-	return int(hasher.Sum64()) % size
+	return hasher.Sum64() % uint64(size)
 }

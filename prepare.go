@@ -3,18 +3,20 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hopwesley/rta-mapping/common"
 	"strconv"
+	"strings"
 	"time"
 )
 
 const (
 	IDTableName         = "ad_id_mapping"
 	DefaultMaxIDMapSize = 20_000_000
+	RatRedisKeyPrefix   = "ad:bytedance:"
+	ReadSizeOnce        = 1 << 10
 )
 
 type RedisCfg struct {
@@ -26,51 +28,63 @@ func InitRtaMap(cfg *RedisCfg) error {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     cfg.Addr,     //"localhost:6379", // Redis地址
 		Password: cfg.Password, // 密码（如果有的话）
-		DB:       0,            // 使用默认DB
 	})
 	ctx := context.Background()
 	defer rdb.Close()
 
-	var cursor uint64
-	var rtaIDs []string
-	for {
-		var err error
-		keys, err := rdb.Keys(ctx, "ad:bytedance*").Result()
-		//rtaIDs, cursor, err = rdb.Scan(ctx, cursor, "", 0).Result()
+	keys, err := rdb.Keys(ctx, RatRedisKeyPrefix+"*").Result()
+	if err != nil {
+		fmt.Println("redis read keys err:", err)
+		return err
+	}
+	if len(keys) == 0 {
+		return fmt.Errorf("no data in redis")
+	}
+	fmt.Printf("Found %d keys in Redis:\n", len(keys))
+
+	for _, key := range keys {
+		card, err := rdb.SCard(ctx, key).Result()
 		if err != nil {
-			fmt.Println("redis scan err:", err)
+			fmt.Printf("failed to get cardinality for key %s: %v\n", key, err)
 			return err
 		}
-		fmt.Println("rtaIDS len:", len(rtaIDs))
-		for _, key := range keys {
-			jsonUserIDs, err := rdb.Get(ctx, key).Result()
-			if err != nil {
-				fmt.Println("redis get err:", err)
-				return err
-			}
-			var userIDs []int
-			err = json.Unmarshal([]byte(jsonUserIDs), &userIDs)
-			if err != nil {
-				fmt.Println("Error unmarshalling array:", err)
-				return err
-			}
-
-			fmt.Printf("rtaID: %s, Value Len: %d\n", key, len(userIDs))
-			if len(userIDs) == 0 {
-				continue
-			}
-			rid, err := strconv.ParseInt(key, 10, 64)
-			if err != nil {
-				return err
-			}
-			common.RtaMapInst().InitByOneRtaWithoutLock(rid, userIDs)
-
-			fmt.Printf("init rta[%s] successfully\n", key)
+		fmt.Printf("key: %s, cardinality: %d\n", key, card)
+		if card == 0 {
+			continue
 		}
 
-		if cursor == 0 {
-			fmt.Println("cursor is zero now")
-			break
+		rtaIDStr, found := strings.CutPrefix(key, RatRedisKeyPrefix)
+		if !found {
+			return fmt.Errorf("invalid rta id")
+		}
+		rid, err := strconv.ParseInt(rtaIDStr, 10, 64)
+		if err != nil {
+			return err
+		}
+
+		var cursor uint64
+		for {
+			userIDStr, cursor, err := rdb.SScan(ctx, key, cursor, "", ReadSizeOnce).Result()
+			if err != nil {
+				fmt.Printf("failed to scan members for key %s: %v\n", key, err)
+				return err
+			}
+
+			if cursor == 0 {
+				fmt.Printf("key:%s read finished!\n", keys)
+				break
+			}
+			var userIDs []int
+			for _, uidStr := range userIDStr {
+				uid, err := strconv.Atoi(uidStr)
+				if err != nil {
+					fmt.Println("invalid user id found:", uidStr)
+					return err
+				}
+				userIDs = append(userIDs, uid)
+			}
+
+			common.RtaMapInst().InitByOneRtaWithoutLock(rid, userIDs)
 		}
 	}
 
