@@ -70,6 +70,7 @@ func TestInitRtaMap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	common.PrintMemUsage()
 }
 
 func TestRedisPing(t *testing.T) {
