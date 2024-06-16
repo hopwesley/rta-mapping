@@ -155,7 +155,10 @@ func TestIdUpdate(t *testing.T) {
 	}
 	request = append(request, req)
 	api := "http://localhost:8801" + "/id_map_update"
-	reqData, _ := json.Marshal(req)
+	reqData, err := json.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
 	respData, err := doHttp(api, "application/json", reqData)
 	if err != nil {
 		t.Fatalf("http failed:%v", err)
@@ -172,11 +175,30 @@ func TestIdQuery(t *testing.T) {
 	var req = &common.JsonRequest{
 		//IMEIMD5: "bdcee62535db4000a7b8b5aeec4fc783",
 		IDFA: "vQZui7zkOsy7VLf79nmV4xOssOETzCs7",
-		OAID: "vP9cymv9iVjQEyl4IiRi8jYGmOR0Cx6j",
+		OAID: "0hnMDId1xWZ7h8XByOnORe1mu7XlLZFY",
 		//AndroidIDMD5: "puQAjHRIDGNtEHtxv77eZdm4I6NQJQcD",
 	}
 
 	api := "http://localhost:8801" + "/query_id"
+	reqData, _ := json.Marshal(req)
+	respData, err := doHttp(api, "application/json", reqData)
+	if err != nil {
+		t.Fatalf("http failed:%v", err)
+	}
+	var rsp common.JsonResponse
+	err = json.Unmarshal(respData, &rsp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(rsp)
+}
+
+func TestRtaQuery(t *testing.T) {
+	var req = &common.JsonRequest{
+		UserID: 10000000004,
+	}
+
+	api := "http://localhost:8801" + "/query_rta"
 	reqData, _ := json.Marshal(req)
 	respData, err := doHttp(api, "application/json", reqData)
 	if err != nil {

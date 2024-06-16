@@ -75,8 +75,7 @@ Commit:         fd576e6f8f77d85c6a2db0bd071eb069e9fea457
 ## API 接口介绍
 ### 参考测试文件：[srv_test.go](srv_test.go)
 ### - **对外接口，device与rta的关系**:
-- **详细描述输入参数**
-[rta_api.proto](common/rta_api.proto)
+- **详细参数参考：**[rta_api.proto](common/rta_api.proto)
 
  - **api url： /rta_hint**
  - 参考
@@ -101,7 +100,7 @@ var response = &Rsp{
 
 ### 修改 Rta 与 user 映射
 - **api url： /rta_update**
-- **入参**:
+- **入参**:*common.RtaUpdateItem
 
 ```
 type RtaUpdateItem struct {
@@ -124,16 +123,31 @@ type JsonResponse struct {
 
 - **api url： /id_map_update**
 - **入参**:
-
+  []*common.IDUpdateReq
 ```
-type JsonRequest struct {
-	UserID       int    `json:"user_id"`
-	IMEIMD5      string `json:"imei_md5"`
-	OAID         string `json:"oaid"`
-	IDFA         string `json:"idfa"`
-	AndroidIDMD5 string `json:"android_id_md5"`
+var request []*common.IDUpdateReq
+
+const (
+	IDOpTypAdd = iota
+	IDOpTypUpdate
+	IDOpTypDel
+)
+type IDOpItem struct {
+	Val   string `json:"val"`
+	OpTyp int    `json:"op_typ"`
+}
+type IDUpdateReq struct {
+	UserID       int       `json:"user_id,omitempty"`
+	IMEIMD5      *IDOpItem `json:"imei_md5,omitempty"`
+	OAID         *IDOpItem `json:"oaid,omitempty"`
+	IDFA         *IDOpItem `json:"idfa,omitempty"`
+	AndroidIDMD5 *IDOpItem `json:"android_id_md5,omitempty"`
 }
 ```
+
+传入数据是一个数组，数组中每一个元素对应一个ID及其属性的操作
+操作类型位增加，更新和删除，调用时，可以对某一User ID的的附属信息单独进行操作，
+如果不想操作其属性，可以将该属性设置为空。例如不想操作其IMEIMD5属性，可以设置为nil
 
 - **结果**:
 
@@ -145,8 +159,54 @@ type JsonResponse struct {
 }
 ```
 
-### 修改 RTA 命令
+### 查询 ID Mapping
+- **api url： /query_id**
+- **入参**:*common.JsonRequest
+```
+type JsonRequest struct {
+	UserID       int    `json:"user_id,omitempty"`
+	IMEIMD5      string `json:"imei_md5,omitempty"`
+	OAID         string `json:"oaid,omitempty"`
+	IDFA         string `json:"idfa,omitempty"`
+	AndroidIDMD5 string `json:"android_id_md5,omitempty"`
+}
 
-- **入参**: 详细描述输入参数。
-- **结果**: 详细描述返回结果。
+```
+UserID不需要输入，可以根据IMEIMD5，OAID，IDFA，AndroidIDMD5这4个值查询对应的UserID值
+这4个值任意一个值不能为空。命中优先级：IMEIMD5>OAID>IDFA>AndroidIDMD5
+
+- **结果**: 
+ ```
+type JsonResponse struct {
+Success bool   `json:"success"`
+Code    int    `json:"code"`
+Msg     string `json:"msg"`
+}
+```
+返回结果Success为true时，Msg函有UserID，false时表示不存在该属性对应的UserID
+### 查询 RTA 命令
+- **api url： /query_rta**
+- **入参**:*common.JsonRequest
+```
+type JsonRequest struct {
+	UserID       int    `json:"user_id,omitempty"`
+	IMEIMD5      string `json:"imei_md5,omitempty"`
+	OAID         string `json:"oaid,omitempty"`
+	IDFA         string `json:"idfa,omitempty"`
+	AndroidIDMD5 string `json:"android_id_md5,omitempty"`
+}
+
+```
+UserID不能为空，其他值为空
+
+- **结果**:
+ ```
+type JsonResponse struct {
+Success bool   `json:"success"`
+Code    int    `json:"code"`
+Msg     string `json:"msg"`
+}
+```
+返回结果Success为true时，Msg函有一个json字符串，该字符串是一个数组，数组中元素为该UuserID对应的rtaid
+如果返回false时，表示不存在该用户的rta信息。
 

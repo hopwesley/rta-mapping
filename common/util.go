@@ -43,11 +43,11 @@ type JsonResponse struct {
 }
 
 type JsonRequest struct {
-	UserID       int    `json:"user_id"`
-	IMEIMD5      string `json:"imei_md5"`
-	OAID         string `json:"oaid"`
-	IDFA         string `json:"idfa"`
-	AndroidIDMD5 string `json:"android_id_md5"`
+	UserID       int    `json:"user_id,omitempty"`
+	IMEIMD5      string `json:"imei_md5,omitempty"`
+	OAID         string `json:"oaid,omitempty"`
+	IDFA         string `json:"idfa,omitempty"`
+	AndroidIDMD5 string `json:"android_id_md5,omitempty"`
 }
 
 func ReadProtoRequest(w http.ResponseWriter, r *http.Request) *Req {
