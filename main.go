@@ -97,6 +97,7 @@ func initConfig(filName string) *Config {
 	}
 
 	_sysConfig = cf
+	fmt.Println(_sysConfig.String())
 	return cf
 }
 

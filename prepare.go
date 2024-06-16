@@ -24,6 +24,13 @@ type RedisCfg struct {
 	Password string `json:"password"`
 }
 
+func (c *RedisCfg) String() string {
+	s := "\n========redis config========"
+	s += "\nAddress:" + c.Addr
+	s += "\n============================"
+	return s
+}
+
 func InitRtaMap(cfg *RedisCfg) error {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     cfg.Addr,     //"localhost:6379", // Redis地址
@@ -31,6 +38,7 @@ func InitRtaMap(cfg *RedisCfg) error {
 	})
 	ctx := context.Background()
 	defer rdb.Close()
+	var start = time.Now()
 
 	keys, err := rdb.Keys(ctx, RatRedisKeyPrefix+"*").Result()
 	if err != nil {
@@ -43,6 +51,7 @@ func InitRtaMap(cfg *RedisCfg) error {
 	fmt.Printf("Found %d keys in Redis:\n", len(keys))
 
 	for _, key := range keys {
+
 		card, err := rdb.SCard(ctx, key).Result()
 		if err != nil {
 			fmt.Printf("failed to get cardinality for key %s: %v\n", key, err)
@@ -63,17 +72,14 @@ func InitRtaMap(cfg *RedisCfg) error {
 		}
 
 		var cursor uint64
+		var counter = 0
 		for {
-			userIDStr, cursor, err := rdb.SScan(ctx, key, cursor, "", ReadSizeOnce).Result()
+			userIDStr, nextCursor, err := rdb.SScan(ctx, key, cursor, "", ReadSizeOnce).Result()
 			if err != nil {
 				fmt.Printf("failed to scan members for key %s: %v\n", key, err)
 				return err
 			}
 
-			if cursor == 0 {
-				fmt.Printf("key:%s read finished!\n", keys)
-				break
-			}
 			var userIDs []int
 			for _, uidStr := range userIDStr {
 				uid, err := strconv.Atoi(uidStr)
@@ -83,8 +89,17 @@ func InitRtaMap(cfg *RedisCfg) error {
 				}
 				userIDs = append(userIDs, uid)
 			}
-
+			counter += len(userIDStr)
 			common.RtaMapInst().InitByOneRtaWithoutLock(rid, userIDs)
+
+			cursor = nextCursor
+			fmt.Printf("\rrtaid[%s] loaded: %d progress: %.2f%% time used: %s",
+				rtaIDStr, counter, float32(counter)*100/float32(card), time.Since(start))
+
+			if cursor == 0 {
+				fmt.Printf("\nkey:%s read finished!\n", key)
+				break
+			}
 		}
 	}
 
@@ -99,6 +114,18 @@ type MysqlCfg struct {
 	Port     string `json:"port"`
 	Database string `json:"database"`
 	Limit    int64  `json:"limit"`
+}
+
+func (c *MysqlCfg) String() string {
+	s := "\n============mysql config========"
+	s += "\nuser name:" + c.UserName
+	s += "\nhost:" + c.Host
+	s += "\nport:" + c.Port
+	s += "\ndatabase:" + c.Database
+	s += fmt.Sprintf("\nlimit:%d", c.Limit)
+	s += "\n================================"
+	return s
+
 }
 
 func (c *MysqlCfg) ToDsn() string {

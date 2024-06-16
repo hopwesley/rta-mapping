@@ -38,9 +38,6 @@ all: pbs mac linux
 pbs:
 	cd common/ && $(MAKE)
 
-sol:
-	cd contract/ && $(MAKE)
-
 target:=mac
 
 mac:

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/hopwesley/rta-mapping/common"
@@ -13,9 +14,10 @@ type Service struct {
 
 func (s *Service) Start() {
 	if _sysConfig.UseSSL {
+		fmt.Println("https service start success:", _sysConfig.SrvPort)
 		panic(http.ListenAndServeTLS(":"+_sysConfig.SrvPort, _sysConfig.SSLCertFile, _sysConfig.SSLKeyFile, s.router))
-
 	} else {
+		fmt.Println("http service start success:", _sysConfig.SrvPort)
 		panic(http.ListenAndServe(":"+_sysConfig.SrvPort, s.router))
 	}
 }
