@@ -90,8 +90,8 @@ func (m *RtaBitMap) HintedUserIDs(userID int, ratIDs []int64) (result []*UserInf
 	for _, rtaID := range ratIDs {
 		slotPos := rtaIDToSlotPos(rtaID)
 
-		value, ok := m.rtaGrp.Load(slotPos)
-		if !ok || value.(int64) <= 0 {
+		val, ok := m.rtaGrp.Load(slotPos)
+		if !ok || val.(int64) <= 0 {
 			continue
 		}
 
