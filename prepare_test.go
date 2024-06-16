@@ -76,6 +76,7 @@ func TestMysqlQuerySomeData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	counter := 0
 	for rows.Next() {
 		var item common.JsonRequest
 
@@ -85,6 +86,11 @@ func TestMysqlQuerySomeData(t *testing.T) {
 		}
 		bts, _ := json.Marshal(item)
 		fmt.Println(string(bts))
+		common.IDMapInst().UpdateByMySqlWithoutLock(item)
+		counter++
+		if counter > 100 {
+			break
+		}
 	}
 }
 

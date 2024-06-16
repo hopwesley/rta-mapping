@@ -40,13 +40,12 @@ func rtaUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func idUpdate(w http.ResponseWriter, r *http.Request) {
-	var request = &common.JsonRequest{}
+	var request []*common.IDUpdateReq
 	err := common.ReadJsonRequest(r, request)
 	if err != nil {
 		http.Error(w, "Invalid update request", http.StatusBadRequest)
 		return
 	}
-
 	var response = common.IDMapInst().UpdateIDMap(request)
 	common.WriteJsonRequest(w, response)
 }

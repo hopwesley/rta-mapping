@@ -73,11 +73,77 @@ Commit:         fd576e6f8f77d85c6a2db0bd071eb069e9fea457
  ./rtaHint.(mac/linux) -c config.json
 ```
 ## API 接口介绍
+### 参考测试文件：[srv_test.go](srv_test.go)
+### - **对外接口，device与rta的关系**:
+- **详细描述输入参数**
+[rta_api.proto](common/rta_api.proto)
 
+ - **api url： /rta_hint**
+ - 参考
+```
+req := &common.Req{
+    Device: &common.Device{
+        ImeiMd5:      "15d35cced5fb....0fbfe76ac626df6",
+        Oaid:         "0hnMDI....u7XlLZFY",
+        AndroidIdMd5: "puQAjHRIDGN....77eZdm4I6NQJQcD",
+    },
+    ReqId:  "xxx-xxx-xxx",
+    RtaIds: []int64{10003, 10004, 10005},
+}
+	
+var response = &Rsp{
+    StatusCode: HitSuccess,
+    BidType:    &wrapperspb.Int32Value{Value: BidTypeOk},
+    UserInfos:  uis,
+    ReqId:      request.ReqId,
+}
+```
+
+### 修改 Rta 与 user 映射
+- **api url： /rta_update**
+- **入参**:
+
+```
+type RtaUpdateItem struct {
+  RtaID   int64 `json:"rta_id"`
+  UserIDs []int `json:"user_ids"`
+  IsDel   bool  `json:"is_del"`
+}
+```
+
+- **结果**:
+
+```
+type JsonResponse struct {
+  Success bool   `json:"success"`
+  Code    int    `json:"code"`
+  Msg     string `json:"msg"`
+}
+```
 ### 修改 ID Mapping
 
-- **入参**: 详细描述输入参数。
-- **结果**: 详细描述返回结果。
+- **api url： /id_map_update**
+- **入参**:
+
+```
+type JsonRequest struct {
+	UserID       int    `json:"user_id"`
+	IMEIMD5      string `json:"imei_md5"`
+	OAID         string `json:"oaid"`
+	IDFA         string `json:"idfa"`
+	AndroidIDMD5 string `json:"android_id_md5"`
+}
+```
+
+- **结果**:
+
+```
+type JsonResponse struct {
+  Success bool   `json:"success"`
+  Code    int    `json:"code"`
+  Msg     string `json:"msg"`
+}
+```
 
 ### 修改 RTA 命令
 

@@ -14,6 +14,24 @@ type IDMap struct {
 	AndroidIDMD5 *sync.Map
 }
 
+const (
+	IDOpTypAdd = iota
+	IDOpTypUpdate
+	IDOpTypDel
+)
+
+type IDOpItem struct {
+	Val   string `json:"val"`
+	OpTyp int    `json:"op_typ"`
+}
+type IDUpdateReq struct {
+	UserID       int       `json:"user_id,omitempty"`
+	IMEIMD5      *IDOpItem `json:"imei_md5,omitempty"`
+	OAID         *IDOpItem `json:"oaid,omitempty"`
+	IDFA         *IDOpItem `json:"idfa,omitempty"`
+	AndroidIDMD5 *IDOpItem `json:"android_id_md5,omitempty"`
+}
+
 var _idMapping *IDMap
 var _idMapOnce sync.Once
 
@@ -40,8 +58,6 @@ func (im *IDMap) getFromMap(m *sync.Map, key string) (int, bool) {
 func (im *IDMap) updateMap(m *sync.Map, key string, userID int) {
 	if len(key) > 0 {
 		m.Store(key, userID)
-	} else {
-		m.Delete(key)
 	}
 }
 
@@ -65,12 +81,28 @@ func (im *IDMap) DeviceToUserID(device *Device) (int, bool) {
 
 	return -1, false
 }
+func operateID(m *sync.Map, item *IDOpItem, userID int) {
+	if item == nil {
+		return
+	}
 
-func (im *IDMap) UpdateIDMap(req *JsonRequest) *JsonResponse {
-	im.updateMap(im.IMEIMD5, req.IMEIMD5, req.UserID)
-	im.updateMap(im.OAID, req.OAID, req.UserID)
-	im.updateMap(im.IDFA, req.IDFA, req.UserID)
-	im.updateMap(im.AndroidIDMD5, req.AndroidIDMD5, req.UserID)
+	switch item.OpTyp {
+	case IDOpTypAdd, IDOpTypUpdate:
+		m.Store(item.Val, userID)
+		break
+	case IDOpTypDel:
+		m.Delete(item.Val)
+		break
+	}
+}
+
+func (im *IDMap) UpdateIDMap(req []*IDUpdateReq) *JsonResponse {
+	for _, idOp := range req {
+		operateID(im.IMEIMD5, idOp.IMEIMD5, idOp.UserID)
+		operateID(im.OAID, idOp.OAID, idOp.UserID)
+		operateID(im.IDFA, idOp.IDFA, idOp.UserID)
+		operateID(im.AndroidIDMD5, idOp.AndroidIDMD5, idOp.UserID)
+	}
 	return SuccessJsonRes
 }
 
@@ -103,8 +135,11 @@ func (im *IDMap) QueryIDInfos(req *JsonRequest) *JsonResponse {
 }
 
 func (im *IDMap) UpdateByMySqlWithoutLock(item JsonRequest) {
-	im.IMEIMD5.Store(item.IMEIMD5, item.UserID)
-	im.OAID.Store(item.OAID, item.UserID)
-	im.IDFA.Store(item.IDFA, item.UserID)
-	im.AndroidIDMD5.Store(item.AndroidIDMD5, item.UserID)
+	im.updateMap(im.IMEIMD5, item.IMEIMD5, item.UserID)
+	im.updateMap(im.OAID, item.OAID, item.UserID)
+	im.updateMap(im.IDFA, item.IDFA, item.UserID)
+	//fmt.Println("\n\n", item.IDFA, item.UserID)
+	//fmt.Println(im.getFromMap(im.IDFA, item.IDFA))
+	//fmt.Println()
+	im.updateMap(im.AndroidIDMD5, item.AndroidIDMD5, item.UserID)
 }
